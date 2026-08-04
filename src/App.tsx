@@ -193,8 +193,6 @@ export function App({
           theme="amber"
           status={status}
           error={error}
-          showVoiceToggle={false}
-          showTextChatToggle={false}
           joinLayout="side-by-side"
           onHost={handleHost}
           onJoin={handleJoin}
