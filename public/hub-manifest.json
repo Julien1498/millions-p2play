@@ -1,0 +1,9 @@
+{
+  "key": "millions",
+  "name": "Des Millions Dans la Poche !",
+  "emoji": "💰",
+  "desc": "Répondez aux questions jusqu'au million d'euros !",
+  "hasPreConfig": true,
+  "avatars": ["💰", "👑", "🎙️", "🎓", "🧠", "✨"],
+  "shellBackground": "radial-gradient(circle at center, #0b1736 0%, #050b18 100%)"
+}
