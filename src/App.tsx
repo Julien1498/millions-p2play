@@ -301,6 +301,8 @@ export function App({
               sendAction("PRESENTER_REVEAL");
             }}
             onNextQuestion={() => sendAction("NEXT_QUESTION")}
+            onRevealNextChoice={() => sendAction("REVEAL_NEXT_CHOICE")}
+            onRevealAllChoices={() => sendAction("REVEAL_ALL_CHOICES")}
             onPlaySoundEffect={(type) => {
               sendAction("PLAY_SOUND_EFFECT", { soundType: type });
             }}

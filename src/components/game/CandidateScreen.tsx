@@ -165,6 +165,7 @@ export function CandidateScreen({
             removedIndices={jokers["50_50"].removedIndices}
             isFinalAnswer={isFinalAnswer}
             isRevealed={isRevealed}
+            revealedChoicesCount={gameState.revealedChoicesCount}
             onSelectChoice={onSelectChoice}
             disabled={!isMyTurnToAnswer || isFinalAnswer || isRevealed}
           />

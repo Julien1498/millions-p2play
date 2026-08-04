@@ -26,8 +26,16 @@ describe("MillionaireEngine Core Logic", () => {
     expect(engine.state.correctAnswerIndex).not.toBeNull();
   });
 
-  it("should handle answer selection and final answer locking", () => {
+  it("should handle choice reveal, answer selection and final answer locking", () => {
     engine.startGame(FALLBACK_QUESTIONS, "peer-1");
+    expect(engine.state.revealedChoicesCount).toBe(0);
+
+    engine.revealNextChoice();
+    expect(engine.state.revealedChoicesCount).toBe(1);
+
+    engine.revealAllChoices();
+    expect(engine.state.revealedChoicesCount).toBe(4);
+
     expect(engine.selectAnswer(1)).toBe(true);
     expect(engine.state.phase).toBe("ANSWER_SELECTED");
     expect(engine.state.selectedIndex).toBe(1);
@@ -39,6 +47,8 @@ describe("MillionaireEngine Core Logic", () => {
 
   it("should calculate correct earnings on correct reveal", () => {
     engine.startGame(FALLBACK_QUESTIONS, "peer-1");
+    engine.revealAllChoices();
+
     const correctIdx = engine.state.correctAnswerIndex!;
     engine.selectAnswer(correctIdx);
     engine.lockFinalAnswer();
@@ -53,6 +63,7 @@ describe("MillionaireEngine Core Logic", () => {
     engine.startGame(FALLBACK_QUESTIONS, "peer-1");
     // Simulate level 6 (passed level 5 safety threshold 800 €)
     engine.loadQuestionForLevel(6);
+    engine.revealAllChoices();
 
     const wrongIdx = (engine.state.correctAnswerIndex! + 1) % 4;
     engine.selectAnswer(wrongIdx);

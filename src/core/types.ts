@@ -67,6 +67,7 @@ export interface GameState {
   selectedIndex: number | null; // Candidate selected index 0..3
   isFinalAnswer: boolean; // Candidate locked "C'est votre dernier mot ?"
   isAnswerCorrect: boolean | null; // Reveal result
+  revealedChoicesCount: number; // Number of choices revealed so far (0..4)
   jokers: JokersState;
   activeCandidatePeerId: string | null; // Backward compatibility
   activeCandidatePeerIds: string[]; // List of active candidates in game

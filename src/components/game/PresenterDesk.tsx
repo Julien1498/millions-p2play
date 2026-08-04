@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Mic, Eye, CheckCircle2, ArrowRight, Volume2, ShieldAlert, Sparkles, Award } from "lucide-react";
+import { Mic, Eye, CheckCircle2, ArrowRight, Volume2, ShieldAlert, Sparkles, Award, Plus, Zap } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { Button } from "../ui/Button";
 import { MoneyTree } from "./MoneyTree";
@@ -16,6 +16,8 @@ export interface PresenterDeskProps {
   onLockFinalAnswer: () => void;
   onRevealResult: () => void;
   onNextQuestion: () => void;
+  onRevealNextChoice: () => void;
+  onRevealAllChoices: () => void;
   onPlaySoundEffect?: (type: string) => void;
 }
 
@@ -27,6 +29,8 @@ export function PresenterDesk({
   onLockFinalAnswer,
   onRevealResult,
   onNextQuestion,
+  onRevealNextChoice,
+  onRevealAllChoices,
   onPlaySoundEffect,
 }: PresenterDeskProps) {
   const [showAudienceModal, setShowAudienceModal] = useState<boolean>(false);
@@ -45,6 +49,7 @@ export function PresenterDesk({
     isFinalAnswer,
     activeCandidatePeerIds,
     activeCandidatePeerId,
+    revealedChoicesCount = 4,
   } = gameState;
 
   // Reset dismissal flags when current level changes
@@ -151,7 +156,7 @@ export function PresenterDesk({
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>
               {phase === "QUESTION_ACTIVE"
-                ? "Lecture de la question par le présentateur..."
+                ? `Lecture de la question... (Choix révélés : ${revealedChoicesCount}/4)`
                 : phase === "ANSWER_SELECTED"
                 ? "Le candidat a sélectionné une réponse. Attendez le verrouillage de son 'Dernier Mot'..."
                 : phase === "FINAL_ANSWER"
@@ -162,7 +167,19 @@ export function PresenterDesk({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* One-by-one or all-at-once Choice Reveal Controls */}
+            {phase === "QUESTION_ACTIVE" && revealedChoicesCount < 4 && (
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={onRevealNextChoice} className="text-xs">
+                  <Plus className="w-3.5 h-3.5 text-amber-400" /> Afficher Choix {LETTERS[revealedChoicesCount]}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onRevealAllChoices} className="text-xs text-amber-300 border border-amber-500/30 hover:bg-amber-500/10">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" /> Tout Afficher (A à D)
+                </Button>
+              </div>
+            )}
+
             {isSelected && !isFinal && !isRevealed && (
               <Button variant="secondary" size="md" onClick={onLockFinalAnswer}>
                 <ShieldAlert className="w-4 h-4 text-amber-400" /> Verrouiller le "Dernier Mot"
@@ -224,12 +241,13 @@ export function PresenterDesk({
               </h3>
             </div>
 
-            {/* Grid of Choices (Clean choice cards without duplicate green text) */}
+            {/* Grid of Choices (Clean choice cards with revealed state indication) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {shuffledChoices.map((choice, idx) => {
                 const isCorrect = correctAnswerIndex === idx;
                 const isChoiceSelected = selectedIndex === idx;
                 const isRemovedBy5050 = jokers["50_50"].removedIndices.includes(idx);
+                const isChoiceRevealedToCandidates = idx < revealedChoicesCount;
 
                 if (isRemovedBy5050) {
                   return (
@@ -243,7 +261,9 @@ export function PresenterDesk({
                 }
 
                 let choiceStyle = "bg-slate-900/80 border-slate-700/80 text-slate-200";
-                if (isRevealed) {
+                if (!isChoiceRevealedToCandidates && !isRevealed) {
+                  choiceStyle = "bg-slate-950/60 border-dashed border-amber-500/30 text-slate-400 opacity-60";
+                } else if (isRevealed) {
                   if (isCorrect) {
                     choiceStyle = "bg-emerald-500/25 border-emerald-400 text-emerald-200 font-extrabold shadow-lg shadow-emerald-500/20";
                   } else if (isChoiceSelected) {
@@ -265,11 +285,18 @@ export function PresenterDesk({
                       <span>{choice}</span>
                     </span>
 
-                    {isChoiceSelected && !isRevealed && (
-                      <span className="text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-bounce">
-                        Choisi par candidat
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {!isChoiceRevealedToCandidates && !isRevealed && (
+                        <span className="text-[10px] bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/30">
+                          Masqué candidats
+                        </span>
+                      )}
+                      {isChoiceSelected && !isRevealed && (
+                        <span className="text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-bounce">
+                          Choisi par candidat
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}

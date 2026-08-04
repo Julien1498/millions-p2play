@@ -11,6 +11,7 @@ export interface QuestionBoxProps {
   isRevealed: boolean;
   onSelectChoice: (index: number) => void;
   disabled?: boolean;
+  revealedChoicesCount?: number;
 }
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -25,6 +26,7 @@ export function QuestionBox({
   isRevealed,
   onSelectChoice,
   disabled,
+  revealedChoicesCount = 4,
 }: QuestionBoxProps) {
   if (!question) return null;
 
@@ -43,10 +45,25 @@ export function QuestionBox({
       {/* 4 Choices Grid (A, B, C, D) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {choices.map((choice, index) => {
+          const isNotYetRevealedByPresenter = index >= revealedChoicesCount;
           const isRemoved = removedIndices.includes(index);
           const isSelected = selectedIndex === index;
           const isCorrect = isRevealed && correctIndex === index;
           const isWrong = isRevealed && isSelected && correctIndex !== index;
+
+          if (isNotYetRevealedByPresenter && !isRevealed) {
+            return (
+              <div
+                key={index}
+                className="p-4 md:p-5 rounded-xl border-2 border-dashed border-slate-800 bg-slate-950/40 text-slate-500 font-semibold text-sm flex items-center gap-4 cursor-not-allowed opacity-50 transition-all duration-300"
+              >
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg font-mono font-black text-sm bg-slate-900 text-slate-600 border border-slate-800 shrink-0">
+                  {LETTERS[index]}
+                </span>
+                <span className="italic text-xs md:text-sm">En attente de révélation par le présentateur...</span>
+              </div>
+            );
+          }
 
           let cardStyle =
             "bg-[#0b1736]/90 border-2 border-amber-500/30 text-slate-100 hover:border-amber-400 hover:bg-[#12234e]";

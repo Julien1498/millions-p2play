@@ -35,6 +35,7 @@ export class MillionaireEngine {
       selectedIndex: null,
       isFinalAnswer: false,
       isAnswerCorrect: null,
+      revealedChoicesCount: 4,
       jokers: {
         "50_50": { used: false, removedIndices: [] },
         PHONE: { used: false, hintText: null },
@@ -116,6 +117,7 @@ export class MillionaireEngine {
     this.state.isFinalAnswer = false;
     this.state.isAnswerCorrect = null;
     this.state.potentialEarnings = getLadderStep(level).amount;
+    this.state.revealedChoicesCount = this.state.config.presenterMode === "HOST_PRESENTER" ? 0 : 4;
     this.state.phase = "QUESTION_ACTIVE";
 
     // Reset transient jokers info for this question
@@ -126,10 +128,24 @@ export class MillionaireEngine {
     return true;
   }
 
+  public revealNextChoice(): boolean {
+    if (this.state.revealedChoicesCount < 4) {
+      this.state.revealedChoicesCount += 1;
+      return true;
+    }
+    return false;
+  }
+
+  public revealAllChoices(): boolean {
+    this.state.revealedChoicesCount = 4;
+    return true;
+  }
+
   public selectAnswer(index: number): boolean {
     if (this.state.phase !== "QUESTION_ACTIVE" && this.state.phase !== "ANSWER_SELECTED") return false;
     if (this.state.isFinalAnswer) return false;
     if (this.state.jokers["50_50"].removedIndices.includes(index)) return false;
+    if (index >= this.state.revealedChoicesCount) return false;
 
     this.state.selectedIndex = index;
     this.state.phase = "ANSWER_SELECTED";
@@ -224,6 +240,7 @@ export class MillionaireEngine {
     this.state.selectedIndex = null;
     this.state.isFinalAnswer = false;
     this.state.isAnswerCorrect = null;
+    this.state.revealedChoicesCount = 4;
     this.state.earnings = 0;
     this.state.potentialEarnings = 100;
     this.state.questionPool = [];

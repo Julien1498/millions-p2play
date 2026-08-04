@@ -138,6 +138,20 @@ export function useGame(options: {
           broadcastSanitizedStates(engine.state);
           break;
 
+        case "REVEAL_NEXT_CHOICE":
+          if (engine.revealNextChoice()) {
+            broadcastSanitizedStates(engine.state);
+            broadcastSoundEffect("select");
+          }
+          break;
+
+        case "REVEAL_ALL_CHOICES":
+          if (engine.revealAllChoices()) {
+            broadcastSanitizedStates(engine.state);
+            broadcastSoundEffect("select");
+          }
+          break;
+
         case "SELECT_ANSWER":
           if (typeof payload?.selectedIndex === "number") {
             engine.selectAnswer(payload.selectedIndex);
