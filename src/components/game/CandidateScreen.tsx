@@ -51,6 +51,7 @@ export function CandidateScreen({
     currentLevel,
     activeCandidatePeerId,
     activeCandidatePeerIds,
+    revealedChoicesCount = 4,
   } = gameState;
 
   // Reset dismissal flags when current level changes
@@ -101,6 +102,7 @@ export function CandidateScreen({
   };
 
   const handleJokerClick = (type: JokerType) => {
+    if (revealedChoicesCount < 4) return;
     onTriggerJoker(type);
     if (type === "AUDIENCE") {
       setAudienceDismissedLevel(null);
@@ -111,6 +113,9 @@ export function CandidateScreen({
       setShowPhoneModal(true);
     }
   };
+
+  const isJokersDisabled =
+    !isMyTurnToAnswer || isFinalAnswer || isRevealed || revealedChoicesCount < 4;
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -154,7 +159,7 @@ export function CandidateScreen({
           <JokersPanel
             jokers={jokers}
             onTriggerJoker={handleJokerClick}
-            disabled={!isMyTurnToAnswer || isFinalAnswer || isRevealed}
+            disabled={isJokersDisabled}
           />
 
           <QuestionBox
@@ -165,7 +170,7 @@ export function CandidateScreen({
             removedIndices={jokers["50_50"].removedIndices}
             isFinalAnswer={isFinalAnswer}
             isRevealed={isRevealed}
-            revealedChoicesCount={gameState.revealedChoicesCount}
+            revealedChoicesCount={revealedChoicesCount}
             onSelectChoice={onSelectChoice}
             disabled={!isMyTurnToAnswer || isFinalAnswer || isRevealed}
           />

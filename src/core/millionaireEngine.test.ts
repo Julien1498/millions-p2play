@@ -75,8 +75,12 @@ describe("MillionaireEngine Core Logic", () => {
     expect(engine.state.phase).toBe("GAME_OVER");
   });
 
-  it("should trigger 50:50 joker and remove 2 wrong answers", () => {
+  it("should trigger 50:50 joker and remove 2 wrong answers when choices are revealed", () => {
     engine.startGame(FALLBACK_QUESTIONS, "peer-1");
+    // Jokers cannot be triggered before all choices are revealed
+    expect(engine.triggerJoker("50_50")).toBe(false);
+
+    engine.revealAllChoices();
     const triggered = engine.triggerJoker("50_50");
     expect(triggered).toBe(true);
     expect(engine.state.jokers["50_50"].used).toBe(true);

@@ -96,6 +96,16 @@ export function useGame(options: {
       const engine = engineRef.current;
       const { type, senderPeerId, payload } = envelope;
 
+      const isPresenterSender =
+        engine.state.config.presenterMode !== "HOST_PRESENTER" ||
+        senderPeerId === engine.state.config.presenterPeerId ||
+        senderPeerId === myPeerId;
+
+      const isCandidateSender =
+        (engine.state.activeCandidatePeerIds && engine.state.activeCandidatePeerIds.includes(senderPeerId)) ||
+        engine.state.activeCandidatePeerId === senderPeerId ||
+        senderPeerId === myPeerId;
+
       switch (type) {
         case "REGISTER_PROFILE":
           if (payload?.username) {
@@ -105,13 +115,15 @@ export function useGame(options: {
           break;
 
         case "CHANGE_CONFIG":
-          if (payload?.config) {
+          if (senderPeerId === myPeerId && payload?.config) {
             engine.setConfig(payload.config);
             broadcastSanitizedStates(engine.state);
           }
           break;
 
         case "START_GAME":
+          if (senderPeerId !== myPeerId) return;
+
           if (
             engine.state.config.presenterMode === "HOST_PRESENTER" &&
             !engine.state.config.presenterPeerId
@@ -139,6 +151,7 @@ export function useGame(options: {
           break;
 
         case "REVEAL_NEXT_CHOICE":
+          if (!isPresenterSender) return;
           if (engine.revealNextChoice()) {
             broadcastSanitizedStates(engine.state);
             broadcastSoundEffect("select");
@@ -146,6 +159,7 @@ export function useGame(options: {
           break;
 
         case "REVEAL_ALL_CHOICES":
+          if (!isPresenterSender) return;
           if (engine.revealAllChoices()) {
             broadcastSanitizedStates(engine.state);
             broadcastSoundEffect("select");
@@ -153,43 +167,46 @@ export function useGame(options: {
           break;
 
         case "SELECT_ANSWER":
+          if (!isCandidateSender) return;
           if (typeof payload?.selectedIndex === "number") {
-            engine.selectAnswer(payload.selectedIndex);
-            broadcastSanitizedStates(engine.state);
+            if (engine.selectAnswer(payload.selectedIndex)) {
+              broadcastSanitizedStates(engine.state);
+            }
           }
           break;
 
         case "LOCK_FINAL_ANSWER":
-          engine.lockFinalAnswer();
-          broadcastSanitizedStates(engine.state);
-          broadcastSoundEffect("suspense");
+          if (!isCandidateSender) return;
+          if (engine.lockFinalAnswer()) {
+            broadcastSanitizedStates(engine.state);
+            broadcastSoundEffect("suspense");
+          }
           break;
 
         case "PRESENTER_REVEAL":
-          engine.revealResult();
-          broadcastSanitizedStates(engine.state);
-          if (engine.state.phase === "QUESTION_SUCCESS") {
-            broadcastSoundEffect("correct");
-          } else if (engine.state.phase === "GAME_OVER") {
-            broadcastSoundEffect("wrong");
-          } else if (engine.state.phase === "VICTORY") {
-            broadcastSoundEffect("victory");
+          if (!isPresenterSender) return;
+          if (engine.revealResult()) {
+            broadcastSanitizedStates(engine.state);
+            if (engine.state.phase === "QUESTION_SUCCESS") {
+              broadcastSoundEffect("correct");
+            } else if (engine.state.phase === "GAME_OVER") {
+              broadcastSoundEffect("wrong");
+            } else if (engine.state.phase === "VICTORY") {
+              broadcastSoundEffect("victory");
+            }
           }
           break;
 
         case "NEXT_QUESTION":
+          if (!isPresenterSender) return;
           if (engine.state.phase === "QUESTION_SUCCESS") {
-            const isPresenterMode = engine.state.config.presenterMode === "HOST_PRESENTER";
-            const presenterId = engine.state.config.presenterPeerId;
-            if (isPresenterMode && presenterId && senderPeerId !== presenterId && senderPeerId !== myPeerId) {
-              return;
-            }
             engine.nextLevel();
             broadcastSanitizedStates(engine.state);
           }
           break;
 
         case "TRIGGER_JOKER":
+          if (!isCandidateSender) return;
           if (payload?.jokerType) {
             if (payload.jokerType === "SWITCH") {
               const [newQ] = await fetchQuizzesFromAPI(
@@ -197,24 +214,31 @@ export function useGame(options: {
                 engine.state.config.categoryFilter,
                 1
               );
-              engine.triggerJoker("SWITCH", newQ);
+              if (engine.triggerJoker("SWITCH", newQ)) {
+                broadcastSanitizedStates(engine.state);
+                broadcastSoundEffect("joker");
+              }
             } else {
-              engine.triggerJoker(payload.jokerType);
+              if (engine.triggerJoker(payload.jokerType)) {
+                broadcastSanitizedStates(engine.state);
+                broadcastSoundEffect("joker");
+              }
             }
-            broadcastSanitizedStates(engine.state);
-            broadcastSoundEffect("joker");
           }
           break;
 
         case "PLAY_SOUND_EFFECT":
+          if (!isPresenterSender) return;
           if (payload?.soundType) {
             broadcastSoundEffect(payload.soundType);
           }
           break;
 
         case "WALK_AWAY":
-          engine.walkAway();
-          broadcastSanitizedStates(engine.state);
+          if (!isCandidateSender) return;
+          if (engine.walkAway()) {
+            broadcastSanitizedStates(engine.state);
+          }
           break;
 
         case "RESET_LOBBY":

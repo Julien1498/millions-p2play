@@ -60,11 +60,13 @@ export class MillionaireEngine {
 
   public registerProfile(peerId: string, username: string, avatar?: string): boolean {
     if (!peerId || !username) return false;
+    const cleanUsername = String(username).trim().slice(0, 25) || "Joueur";
+    const cleanAvatar = String(avatar || "💰").slice(0, 10);
     this.state.playerProfiles = {
       ...this.state.playerProfiles,
       [peerId]: {
-        username,
-        avatar: avatar || "💰",
+        username: cleanUsername,
+        avatar: cleanAvatar,
       },
     };
     return true;
@@ -144,6 +146,7 @@ export class MillionaireEngine {
   public selectAnswer(index: number): boolean {
     if (this.state.phase !== "QUESTION_ACTIVE" && this.state.phase !== "ANSWER_SELECTED") return false;
     if (this.state.isFinalAnswer) return false;
+    if (!Number.isInteger(index) || index < 0 || index > 3) return false;
     if (this.state.jokers["50_50"].removedIndices.includes(index)) return false;
     if (index >= this.state.revealedChoicesCount) return false;
 
@@ -201,6 +204,8 @@ export class MillionaireEngine {
   public triggerJoker(type: JokerType, extraQuestion?: QuizQuestion): boolean {
     if (this.state.jokers[type].used) return false;
     if (this.state.phase !== "QUESTION_ACTIVE" && this.state.phase !== "ANSWER_SELECTED") return false;
+    // Reject joker if all choices are not yet revealed
+    if (this.state.revealedChoicesCount < 4) return false;
 
     if (type === "50_50") {
       this.state.jokers["50_50"].used = true;

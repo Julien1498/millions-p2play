@@ -6,7 +6,6 @@ import { MoneyTree } from "./MoneyTree";
 import { JokersPanel } from "./JokersPanel";
 import { AudiencePollModal } from "./AudiencePollModal";
 import { PhoneFriendModal } from "./PhoneFriendModal";
-import { TVPresenterWidget } from "./TVPresenterWidget";
 import type { GameState, JokerType } from "../../core/types";
 import { formatMoney } from "../../core/ladder";
 
@@ -97,6 +96,7 @@ export function PresenterDesk({
   };
 
   const handleJokerClick = (type: JokerType) => {
+    if (revealedChoicesCount < 4) return;
     if (type === "AUDIENCE") {
       setAudienceDismissedLevel(null);
       setShowAudienceModal(true);
@@ -107,26 +107,54 @@ export function PresenterDesk({
     }
   };
 
+  // Presenter speech text for unified header
+  let speechText = "Bienvenue en plateau ! À vous la parole...";
+  if (phase === "QUESTION_ACTIVE") {
+    if (jokers.AUDIENCE.used && jokers.AUDIENCE.votes) {
+      speechText = "Le public a voté ! Commentez le sondage...";
+    } else if (jokers.PHONE.used && jokers.PHONE.hintText) {
+      speechText = "L'ami a donné son avis ! Demandez au candidat ce qu'il en pense...";
+    } else if (jokers["50_50"].used) {
+      speechText = "Le 50:50 a éliminé 2 mauvaises réponses !";
+    } else if (revealedChoicesCount < 4) {
+      speechText = `Lisez la question N° ${currentLevel}, puis affichez les réponses (${revealedChoicesCount}/4)...`;
+    } else {
+      speechText = `Les 4 choix sont révélés ! Attendez le choix du candidat...`;
+    }
+  } else if (phase === "ANSWER_SELECTED") {
+    const choiceLetter = selectedIndex !== null ? LETTERS[selectedIndex] : "";
+    speechText = `Le candidat a sélectionné la réponse ${choiceLetter}. Demandez s'il s'agit de son dernier mot !`;
+  } else if (phase === "FINAL_ANSWER") {
+    speechText = "Dernier mot verrouillé ! Vous pouvez maintenant révéler le résultat en plateau !";
+  } else if (phase === "QUESTION_SUCCESS") {
+    speechText = "EXCELLENT ! C'est la bonne réponse ! Passez à la question suivante.";
+  } else if (phase === "REVEAL_RESULT" || phase === "GAME_OVER") {
+    speechText = "Aïe aïe aïe... Mauvaise réponse ! Le candidat quitte le plateau.";
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300">
-      {/* Top Presenter Control Bar */}
-      <GlassCard className="border-2 border-amber-500/60 shadow-2xl bg-[#09122a]/95 space-y-4">
+      {/* UNIFIED PRESENTER REGIE CONSOLE HEADER */}
+      <GlassCard className="border-2 border-amber-500/60 shadow-2xl bg-[#09122a]/95 space-y-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Top Info Line: Presenter & Room Stats */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-amber-500/30 pb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
-              <Mic className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 flex items-center justify-center text-2xl shadow-lg border-2 border-amber-300 shadow-amber-500/30 animate-pulse shrink-0">
+              🎙️
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
-                  Régie Présentateur
+                  Régie Présentateur (En Direct)
                 </h2>
-                <span className="text-xs px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-extrabold uppercase">
-                  En Direct
+                <span className="text-[10px] bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                  Direct
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">
-                🎓 Candidats en plateau : <span className="text-amber-300 font-bold">{candidatesList}</span>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                🎓 Candidats : <span className="text-amber-300 font-bold">{candidatesList}</span>
               </p>
             </div>
           </div>
@@ -144,30 +172,20 @@ export function PresenterDesk({
                 onClick={() => onPlaySoundEffect("suspense")}
                 className="text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 text-xs"
               >
-                <Volume2 className="w-4 h-4 text-amber-400 animate-pulse" /> Musique Suspense (Tous)
+                <Volume2 className="w-4 h-4 text-amber-400 animate-pulse" /> Musique Suspense
               </Button>
             )}
           </div>
         </div>
 
-        {/* Action Controls for Presenter */}
+        {/* Presenter Speech Prompt & Direct Action Controls */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-          <div className="text-xs text-slate-300 font-semibold flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>
-              {phase === "QUESTION_ACTIVE"
-                ? `Lecture de la question... (Choix révélés : ${revealedChoicesCount}/4)`
-                : phase === "ANSWER_SELECTED"
-                ? "Le candidat a sélectionné une réponse. Attendez le verrouillage de son 'Dernier Mot'..."
-                : phase === "FINAL_ANSWER"
-                ? "Dernier mot verrouillé ! Le bouton de révélation est débloqué."
-                : isSuccess
-                ? "Bravo ! Réponse correcte ! Vous pouvez passer à la question suivante."
-                : "Résultat révélé en plateau."}
-            </span>
+          <div className="flex items-center gap-2 bg-slate-950/80 p-3 rounded-xl border border-amber-500/30 text-xs md:text-sm font-semibold text-amber-200 italic flex-1 min-w-0">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="truncate">« {speechText} »</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             {/* One-by-one or all-at-once Choice Reveal Controls */}
             {phase === "QUESTION_ACTIVE" && revealedChoicesCount < 4 && (
               <div className="flex items-center gap-2">
@@ -182,11 +200,11 @@ export function PresenterDesk({
 
             {isSelected && !isFinal && !isRevealed && (
               <Button variant="secondary" size="md" onClick={onLockFinalAnswer}>
-                <ShieldAlert className="w-4 h-4 text-amber-400" /> Verrouiller le "Dernier Mot"
+                <ShieldAlert className="w-4 h-4 text-amber-400" /> Verrouiller "Dernier Mot"
               </Button>
             )}
 
-            {/* Reveal Result Button: Strictly disabled / inaccessible until "Dernier Mot" is locked */}
+            {/* Reveal Result Button: Accessible only when "Dernier Mot" is locked */}
             {isFinal && !isRevealed && (
               <Button variant="gold" size="md" onClick={onRevealResult}>
                 <Eye className="w-4 h-4" /> ⚡ Révéler le Résultat !
@@ -202,9 +220,6 @@ export function PresenterDesk({
         </div>
       </GlassCard>
 
-      {/* Interactive Presenter Avatar & Speech Bubble */}
-      <TVPresenterWidget gameState={gameState} presenterName="Régie Présentateur" />
-
       {/* Main Integrated Stage: Left (Question & Secret Key) + Right (Money Pyramid) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         <div className="lg:col-span-3 space-y-6">
@@ -212,7 +227,7 @@ export function PresenterDesk({
           <JokersPanel
             jokers={jokers}
             onTriggerJoker={handleJokerClick}
-            disabled={false}
+            disabled={revealedChoicesCount < 4}
           />
 
           {/* Secret Answer Banner for Host/Presenter (Single source of truth for secret answer) */}
@@ -241,7 +256,7 @@ export function PresenterDesk({
               </h3>
             </div>
 
-            {/* Grid of Choices (Clean choice cards with revealed state indication) */}
+            {/* Grid of Choices */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {shuffledChoices.map((choice, idx) => {
                 const isCorrect = correctAnswerIndex === idx;
