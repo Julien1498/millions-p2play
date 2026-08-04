@@ -1,0 +1,9 @@
+{
+  "key": "millions",
+  "name": "Qui Veut Gagner des Millions",
+  "emoji": "💰",
+  "desc": "Affrontez la pyramide des 15 questions jusqu'au million d'euros avec ou sans présentateur !",
+  "hasPreConfig": true,
+  "avatars": ["💰", "👑", "🎙️", "🎓", "🧠", "✨"],
+  "shellBackground": "radial-gradient(circle at center, #0b1736 0%, #050b18 100%)"
+}

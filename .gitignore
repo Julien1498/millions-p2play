@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist
+dist-standalone
+standalone.zip
+dist.zip
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
