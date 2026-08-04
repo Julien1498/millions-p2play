@@ -9,12 +9,18 @@ export interface QuizzCategory {
   slug: string;
 }
 
-const DEFAULT_CATEGORIES: QuizzCategory[] = [
-  { id: "c1", name: "Culture Générale", slug: "culture_generale" },
-  { id: "c2", name: "Histoire", slug: "histoire" },
-  { id: "c3", name: "Géographie", slug: "geographie" },
-  { id: "c4", name: "Science", slug: "science" },
-  { id: "c5", name: "Art & Littérature", slug: "art_litterature" },
+export const DEFAULT_CATEGORIES: QuizzCategory[] = [
+  { id: "cmck8wdgi0001hzrocg4h8p39", name: "Culture générale", slug: "culture_generale" },
+  { id: "cmck8wdgi0000hzrotiew45v6", name: "Musique", slug: "musique" },
+  { id: "cmck8wdgi0002hzrogafqdta7", name: "Arts et littérature", slug: "art_litterature" },
+  { id: "cmck8wdgi0003hzroikw9krfe", name: "TV et cinéma", slug: "tv_cinema" },
+  { id: "cmck8wdgi0004hzro6ki6dq2m", name: "Actualités et politique", slug: "actu_politique" },
+  { id: "cmck8wdgi0005hzrosvpphnje", name: "Sport", slug: "sport" },
+  { id: "cmck8wdgi0006hzrolulrfg0v", name: "Jeux vidéos", slug: "jeux_videos" },
+  { id: "cmgp9fign001uhzbjiwabp29p", name: "Histoire", slug: "histoire" },
+  { id: "cmgp9imnk001whzbjhmcc2bn8", name: "Géographie", slug: "geographie" },
+  { id: "cmgp9jf2z001xhzbjjeaeb9i3", name: "Science", slug: "science" },
+  { id: "cmgp9jpuh001yhzbj8na5lk44", name: "Gastronomie", slug: "gastronomie" },
 ];
 
 /**
