@@ -181,7 +181,7 @@ export function App({
   // 1. Initial Home / Creation Screen
   if (!isEmbedded && status !== "CONNECTED") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-8 flex items-center justify-center relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.85), rgba(7, 14, 40, 0.95)), url('/quiz_studio_bg.jpg')` }}>
+      <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-8 flex items-center justify-center relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.85), rgba(7, 14, 40, 0.95)), url('quiz_studio_bg.jpg')` }}>
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
         <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -216,7 +216,7 @@ export function App({
 
   // 2. Connected Room (Lobby Config + Game Screen)
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-6 space-y-6 selection:bg-amber-500 selection:text-black relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.88), rgba(7, 14, 40, 0.95)), url('/quiz_studio_bg.jpg')` }}>
+    <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-6 space-y-6 selection:bg-amber-500 selection:text-black relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.88), rgba(7, 14, 40, 0.95)), url('quiz_studio_bg.jpg')` }}>
       {/* Header Bar */}
       <header className="max-w-6xl mx-auto flex items-center justify-between bg-[#0b1736]/95 backdrop-blur-xl border border-amber-500/40 p-3 md:p-4 rounded-2xl shadow-2xl">
         <div className="flex items-center gap-3">

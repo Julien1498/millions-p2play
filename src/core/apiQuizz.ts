@@ -31,6 +31,14 @@ function getApiEndpoint(path: string): string {
 }
 
 export async function fetchCategoriesFromAPI(): Promise<QuizzCategory[]> {
+  const isDev = typeof window !== "undefined" && window.location.hostname === "localhost";
+  if (!isDev) {
+    // Direct browser fetch to /categories on production triggers CORS console error
+    // because the external API lacks Access-Control-Allow-Origin headers on /categories.
+    // Return default categories directly to ensure zero console errors.
+    return DEFAULT_CATEGORIES;
+  }
+
   try {
     const res = await fetch(getApiEndpoint("/api/v2/quiz/categories"));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
