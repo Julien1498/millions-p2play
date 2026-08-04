@@ -209,10 +209,16 @@ export function useGame(options: {
           if (!isCandidateSender) return;
           if (payload?.jokerType) {
             if (payload.jokerType === "SWITCH") {
+              const seenIds = new Set<string>(engine.state.usedQuestionIds);
+              const seenTexts = new Set<string>(
+                engine.state.questionPool.map((q) => q.question.trim().toLowerCase().replace(/\s+/g, " "))
+              );
               const [newQ] = await fetchQuizzesFromAPI(
                 engine.state.currentQuestion?.difficulty || "normal",
                 engine.state.config.categoryFilter,
-                1
+                1,
+                seenIds,
+                seenTexts
               );
               if (engine.triggerJoker("SWITCH", newQ)) {
                 broadcastSanitizedStates(engine.state);

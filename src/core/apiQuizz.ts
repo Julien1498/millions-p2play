@@ -2,6 +2,7 @@ import type { Difficulty, QuizQuestion } from "./types";
 import { FALLBACK_QUESTIONS } from "./fallbackQuestions";
 
 const DIRECT_API_HOST = "https://quizzapi.jomoreschi.fr";
+const HISTORY_KEY = "MILLIONAIRE_PLAYED_QUESTIONS_HISTORY";
 
 export interface QuizzCategory {
   id: string;
@@ -24,6 +25,44 @@ export const DEFAULT_CATEGORIES: QuizzCategory[] = [
 ];
 
 /**
+ * Returns set of played question IDs and normalized question texts stored in localStorage
+ */
+export function getPlayedQuestionsHistory(): Set<string> {
+  try {
+    if (typeof localStorage === "undefined") return new Set();
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch {}
+  return new Set();
+}
+
+/**
+ * Persists played question IDs and normalized question texts to localStorage (rolling 150 items)
+ */
+export function recordPlayedQuestions(questions: QuizQuestion[]): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const history = Array.from(getPlayedQuestionsHistory());
+    const newItems: string[] = [];
+
+    questions.forEach((q) => {
+      newItems.push(q.id);
+      newItems.push(normalizeQuestionText(q.question));
+    });
+
+    const updated = Array.from(new Set([...newItems, ...history])).slice(0, 150);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+  } catch {}
+}
+
+function normalizeQuestionText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
  * Resolves the request URL:
  * Uses local Vite dev server proxy `/api-quizz` during local development (localhost) to bypass browser CORS policy,
  * or direct URL for production builds.
@@ -39,9 +78,6 @@ function getApiEndpoint(path: string): string {
 export async function fetchCategoriesFromAPI(): Promise<QuizzCategory[]> {
   const isDev = typeof window !== "undefined" && window.location.hostname === "localhost";
   if (!isDev) {
-    // Direct browser fetch to /categories on production triggers CORS console error
-    // because the external API lacks Access-Control-Allow-Origin headers on /categories.
-    // Return default categories directly to ensure zero console errors.
     return DEFAULT_CATEGORIES;
   }
 
@@ -51,7 +87,6 @@ export async function fetchCategoriesFromAPI(): Promise<QuizzCategory[]> {
     const data = await res.json();
     return Array.isArray(data) ? data : DEFAULT_CATEGORIES;
   } catch (err) {
-    // Fallback to default category list on network/CORS failure
     return DEFAULT_CATEGORIES;
   }
 }
@@ -59,13 +94,19 @@ export async function fetchCategoriesFromAPI(): Promise<QuizzCategory[]> {
 export async function fetchQuizzesFromAPI(
   difficulty?: Difficulty,
   categorySlug?: string,
-  limit: number = 10
+  limit: number = 10,
+  excludeIds: Set<string> = new Set(),
+  excludeTexts: Set<string> = new Set()
 ): Promise<QuizQuestion[]> {
   try {
     const params = new URLSearchParams();
     if (difficulty) params.set("difficulty", difficulty);
     if (categorySlug && categorySlug !== "all") params.set("category", categorySlug);
-    params.set("limit", limit.toString());
+
+    // Randomize page offset to fetch fresh questions across different API database pages
+    const randomPage = Math.floor(Math.random() * 5) + 1;
+    params.set("page", randomPage.toString());
+    params.set("limit", Math.max(limit * 2, 20).toString());
 
     const url = `${getApiEndpoint("/api/v2/quiz")}?${params.toString()}`;
     const res = await fetch(url);
@@ -74,7 +115,7 @@ export async function fetchQuizzesFromAPI(
     const data = await res.json();
 
     if (data && Array.isArray(data.quizzes) && data.quizzes.length > 0) {
-      return data.quizzes.map((q: any) => ({
+      const parsed: QuizQuestion[] = data.quizzes.map((q: any) => ({
         id: q.id || `q-${Math.random().toString(36).slice(2)}`,
         question: q.question,
         answer: q.answer,
@@ -82,41 +123,101 @@ export async function fetchQuizzesFromAPI(
         category: q.category || "Culture générale",
         difficulty: (q.difficulty as Difficulty) || difficulty || "normal",
       }));
+
+      const filtered = parsed.filter((q) => {
+        const norm = normalizeQuestionText(q.question);
+        return !excludeIds.has(q.id) && !excludeTexts.has(norm);
+      });
+
+      if (filtered.length > 0) {
+        filtered.sort(() => Math.random() - 0.5);
+        return filtered.slice(0, limit);
+      }
     }
   } catch (err) {
-    // Silent fallback to offline pool on network failure
+    // Silent fallback
   }
 
-  // Fallback to local pool filtered by difficulty
+  // Fallback to local pool filtered by difficulty and excluded items
   let pool = [...FALLBACK_QUESTIONS];
   if (difficulty) {
     pool = pool.filter((q) => q.difficulty === difficulty);
   }
   if (pool.length === 0) pool = [...FALLBACK_QUESTIONS];
 
-  pool.sort(() => Math.random() - 0.5);
-  return pool.slice(0, limit);
+  const filteredLocal = pool.filter((q) => {
+    const norm = normalizeQuestionText(q.question);
+    return !excludeIds.has(q.id) && !excludeTexts.has(norm);
+  });
+
+  const finalPool = filteredLocal.length > 0 ? filteredLocal : pool;
+  finalPool.sort(() => Math.random() - 0.5);
+  return finalPool.slice(0, limit);
 }
 
+/**
+ * Prepares a 15-question game pool with strict unique question deduplication:
+ * - Includes localStorage rolling history to avoid repeating questions from recent games
+ * - 5 Easy questions (Levels 1-5)
+ * - 5 Medium questions (Levels 6-10)
+ * - 5 Hard questions (Levels 11-15)
+ * Guarantees zero duplicate questions in a game and maximum variety across games.
+ */
 export async function prepareGameQuestionPool(categorySlug?: string): Promise<QuizQuestion[]> {
+  const historySet = getPlayedQuestionsHistory();
+  const seenIds = new Set<string>(historySet);
+  const seenTexts = new Set<string>(historySet);
+
   const [faciles, normales, difficiles] = await Promise.all([
-    fetchQuizzesFromAPI("facile", categorySlug, 6),
-    fetchQuizzesFromAPI("normal", categorySlug, 6),
-    fetchQuizzesFromAPI("difficile", categorySlug, 6),
+    fetchQuizzesFromAPI("facile", categorySlug, 10, seenIds, seenTexts),
+    fetchQuizzesFromAPI("normal", categorySlug, 10, seenIds, seenTexts),
+    fetchQuizzesFromAPI("difficile", categorySlug, 10, seenIds, seenTexts),
   ]);
 
   const pool: QuizQuestion[] = [];
 
-  pool.push(...faciles.slice(0, 5));
-  pool.push(...normales.slice(0, 5));
-  pool.push(...difficiles.slice(0, 5));
+  const addUniqueQuestions = (candidates: QuizQuestion[], targetCount: number) => {
+    let added = 0;
+    for (const q of candidates) {
+      const norm = normalizeQuestionText(q.question);
+      if (!seenIds.has(q.id) && !seenTexts.has(norm)) {
+        seenIds.add(q.id);
+        seenTexts.add(norm);
+        pool.push(q);
+        added++;
+        if (added >= targetCount) break;
+      }
+    }
+  };
 
-  while (pool.length < 15) {
-    const randomFallback = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
-    if (!pool.some((q) => q.id === randomFallback.id)) {
-      pool.push(randomFallback);
+  // Add 5 Easy (Levels 1-5)
+  addUniqueQuestions(faciles, 5);
+
+  // Add 5 Medium (Levels 6-10)
+  addUniqueQuestions(normales, 5);
+
+  // Add 5 Hard (Levels 11-15)
+  addUniqueQuestions(difficiles, 5);
+
+  // If pool is under 15 due to strict history exclusions, relax history filter for extra fallbacks
+  if (pool.length < 15) {
+    const currentPoolIds = new Set(pool.map((q) => q.id));
+    const currentPoolTexts = new Set(pool.map((q) => normalizeQuestionText(q.question)));
+
+    const shuffledFallbacks = [...FALLBACK_QUESTIONS].sort(() => Math.random() - 0.5);
+    for (const fb of shuffledFallbacks) {
+      if (pool.length >= 15) break;
+      const norm = normalizeQuestionText(fb.question);
+      if (!currentPoolIds.has(fb.id) && !currentPoolTexts.has(norm)) {
+        currentPoolIds.add(fb.id);
+        currentPoolTexts.add(norm);
+        pool.push(fb);
+      }
     }
   }
+
+  // Record selected questions to localStorage history
+  recordPlayedQuestions(pool);
 
   return pool.slice(0, 15);
 }
