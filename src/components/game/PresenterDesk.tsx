@@ -123,7 +123,11 @@ export function PresenterDesk({
     }
   } else if (phase === "ANSWER_SELECTED") {
     const choiceLetter = selectedIndex !== null ? LETTERS[selectedIndex] : "";
-    speechText = `Le candidat a sélectionné la réponse ${choiceLetter}. Demandez s'il s'agit de son dernier mot !`;
+    if (revealedChoicesCount < 4) {
+      speechText = `Le candidat a choisi ${choiceLetter}. Continuez d'afficher les autres réponses (${revealedChoicesCount}/4)...`;
+    } else {
+      speechText = `Le candidat a sélectionné la réponse ${choiceLetter}. Demandez s'il s'agit de son dernier mot !`;
+    }
   } else if (phase === "FINAL_ANSWER") {
     speechText = "Dernier mot verrouillé ! Vous pouvez maintenant révéler le résultat en plateau !";
   } else if (phase === "QUESTION_SUCCESS") {
@@ -186,8 +190,8 @@ export function PresenterDesk({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {/* One-by-one or all-at-once Choice Reveal Controls */}
-            {phase === "QUESTION_ACTIVE" && revealedChoicesCount < 4 && (
+            {/* One-by-one or all-at-once Choice Reveal Controls: Stay visible as long as choices remain unrevealed */}
+            {!isRevealed && revealedChoicesCount < 4 && (
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={onRevealNextChoice} className="text-xs">
                   <Plus className="w-3.5 h-3.5 text-amber-400" /> Afficher Choix {LETTERS[revealedChoicesCount]}
