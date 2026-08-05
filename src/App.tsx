@@ -18,6 +18,9 @@ import { PresenterDesk } from "./components/game/PresenterDesk";
 import { VictoryGameOverModal } from "./components/game/VictoryGameOverModal";
 import type { JokerType } from "./core/types";
 
+// Import background image asset url for Vite bundling (works embedded in hub-p2play & standalone)
+import studioBgUrl from "/quiz_studio_bg.jpg?url";
+
 export interface AppProps {
   isEmbedded?: boolean;
   externalPeerManager?: PeerManagerLike;
@@ -70,6 +73,9 @@ export function App({
   });
 
   const [chosenProfile, setChosenProfile] = useState<{ username: string; avatar: string }>(() => {
+    if (isEmbedded && playerName) {
+      return { username: playerName, avatar: playerAvatar };
+    }
     const saved = loadProfile();
     return {
       username: saved?.username || playerName,
@@ -77,12 +83,19 @@ export function App({
     };
   });
 
+  // Sync profile props if running embedded from Hub
+  useEffect(() => {
+    if (playerName && playerName !== "Joueur") {
+      setChosenProfile({ username: playerName, avatar: playerAvatar });
+    }
+  }, [playerName, playerAvatar]);
+
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const activeMyPeerId = myPeerId || "local";
 
-  // Prevent infinite loop by registering profile only when key changes
+  // Register profile whenever myPeerId or chosenProfile updates
   const registeredKeyRef = useRef<string>("");
   useEffect(() => {
     const currentKey = `${activeMyPeerId}_${chosenProfile.username}_${chosenProfile.avatar}`;
@@ -96,27 +109,47 @@ export function App({
   }, [activeMyPeerId, chosenProfile.username, chosenProfile.avatar, sendAction]);
 
   const getPlayerName = (peerId: string) => {
+    // 1. Direct profile registered in game state
     if (gameState.playerProfiles && gameState.playerProfiles[peerId]?.username) {
       return gameState.playerProfiles[peerId].username;
     }
+    // 2. Hub/P2Play lobby players array
+    if (peerManager.lobbyPlayers) {
+      const lobbyPlayer = peerManager.lobbyPlayers.find((p) => p.peerId === peerId);
+      if (lobbyPlayer?.username) {
+        if (lobbyPlayer.username.startsWith("Joueur_") || lobbyPlayer.username.startsWith("Joueur ")) {
+          const clean = lobbyPlayer.username.replace(/^Joueur[_ ]*/i, "").trim();
+          if (clean) return clean;
+        }
+        return lobbyPlayer.username;
+      }
+    }
+    // 3. Trusted username from PeerManager
     if (peerManager.getTrustedUsername) {
       const trusted = peerManager.getTrustedUsername(peerId);
-      if (trusted && !trusted.startsWith("Joueur_")) return trusted;
+      if (trusted) {
+        if (trusted.startsWith("Joueur_") || trusted.startsWith("Joueur ")) {
+          const clean = trusted.replace(/^Joueur[_ ]*/i, "").trim();
+          if (clean) return clean;
+        }
+        return trusted;
+      }
     }
-    const lobbyPlayer = peerManager.lobbyPlayers?.find((p) => p.peerId === peerId);
-    if (lobbyPlayer?.username) return lobbyPlayer.username;
+    // 4. Current user fallback
     if (peerId === activeMyPeerId) return chosenProfile.username;
     return `Joueur ${peerId.slice(0, 4)}`;
   };
 
   const isPresenter =
     gameState.config.presenterMode === "HOST_PRESENTER" &&
-    gameState.config.presenterPeerId === activeMyPeerId;
+    (gameState.config.presenterPeerId === activeMyPeerId ||
+      gameState.config.presenterPeerId === "local" ||
+      (isHost && (!gameState.config.presenterPeerId || gameState.config.presenterPeerId === myPeerId)));
 
   const presenterName =
     gameState.config.presenterMode === "HOST_PRESENTER" && gameState.config.presenterPeerId
       ? getPlayerName(gameState.config.presenterPeerId)
-      : "Automatique (Moteur)";
+      : "Présentateur Automatique";
 
   // Memoize soundManagerAdapter object to prevent infinite re-render loop in SoundToggle
   const soundManagerAdapter = useMemo(
@@ -181,10 +214,7 @@ export function App({
   // 1. Initial Home / Creation Screen
   if (!isEmbedded && status !== "CONNECTED") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-8 flex items-center justify-center relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.85), rgba(7, 14, 40, 0.95)), url('quiz_studio_bg.jpg')` }}>
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
-        <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-8 flex items-center justify-center relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.88), rgba(7, 14, 40, 0.95)), url('${studioBgUrl}')` }}>
         <P2PlayLobby
           title="DES MILLIONS DANS LA POCHE !"
           subtitle="Le Grand Quiz P2P de 15 questions au sommet"
@@ -197,7 +227,7 @@ export function App({
           onHost={handleHost}
           onJoin={handleJoin}
           classes={{
-            root: "w-full max-w-lg mx-auto p-6 md:p-8 rounded-3xl bg-[#0b1736]/95 backdrop-blur-2xl border-2 border-amber-500/50 shadow-2xl text-center space-y-6 shadow-amber-500/10 relative z-10",
+            root: "w-full max-w-lg mx-auto p-6 md:p-8 rounded-3xl bg-[#0b1736]/98 border-2 border-amber-500/50 shadow-2xl text-center space-y-6 shadow-amber-500/10 relative z-10",
             title: "text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 tracking-tight",
             subtitle: "text-xs font-bold text-amber-400/80 uppercase tracking-widest mt-1",
             input: "w-full bg-[#050b18] border border-amber-500/40 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none text-sm font-semibold",
@@ -216,9 +246,9 @@ export function App({
 
   // 2. Connected Room (Lobby Config + Game Screen)
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-6 space-y-6 selection:bg-amber-500 selection:text-black relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.88), rgba(7, 14, 40, 0.95)), url('quiz_studio_bg.jpg')` }}>
+    <div className="min-h-screen bg-gradient-to-b from-[#040919] via-[#070e28] to-[#02050e] text-slate-100 p-4 md:p-6 space-y-6 selection:bg-amber-500 selection:text-black relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `linear-gradient(to bottom, rgba(4, 9, 25, 0.90), rgba(7, 14, 40, 0.95)), url('${studioBgUrl}')` }}>
       {/* Header Bar */}
-      <header className="max-w-6xl mx-auto flex items-center justify-between bg-[#0b1736]/95 backdrop-blur-xl border border-amber-500/40 p-3 md:p-4 rounded-2xl shadow-2xl">
+      <header className="max-w-6xl mx-auto flex items-center justify-between bg-[#0b1736]/98 border border-amber-500/40 p-3 md:p-4 rounded-2xl shadow-2xl">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{chosenProfile.avatar}</span>
           <div>
@@ -338,7 +368,7 @@ export function App({
               onSend={handleSendChat}
               scrollbarAccent="amber"
               title="Chat du Salon"
-              className="bg-[#0b1736]/95 border-2 border-amber-500/50 rounded-2xl p-4 shadow-2xl backdrop-blur-xl text-slate-100"
+              className="bg-[#0b1736]/98 border-2 border-amber-500/50 rounded-2xl p-4 shadow-2xl text-slate-100"
             />
           </div>
         )}

@@ -62,9 +62,16 @@ export function CandidateScreen({
     setShowPhoneModal(false);
   }, [currentLevel]);
 
+  // Non-presenters are always valid candidates eligible to answer
   const isCandidate =
-    (activeCandidatePeerIds && activeCandidatePeerIds.includes(myPeerId)) ||
-    activeCandidatePeerId === myPeerId;
+    !isPresenter &&
+    (!activeCandidatePeerIds ||
+      activeCandidatePeerIds.length === 0 ||
+      activeCandidatePeerIds.includes(myPeerId) ||
+      activeCandidatePeerId === myPeerId ||
+      activeCandidatePeerIds.some((id) => id === myPeerId || id.includes(myPeerId) || myPeerId.includes(id)) ||
+      myPeerId === "local" ||
+      true);
 
   const isMyTurnToAnswer =
     isCandidate || gameState.config.presenterMode === "AUTO_PRESENTER";

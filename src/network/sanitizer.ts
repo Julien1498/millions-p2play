@@ -12,9 +12,9 @@ export function sanitizeGameStateForViewer(
 ): GameState {
   const isPresenter =
     state.config.presenterMode === "HOST_PRESENTER" &&
-    Boolean(state.config.presenterPeerId) &&
     (state.config.presenterPeerId === viewerPeerId ||
-      viewerPeerId === "local");
+      viewerPeerId === "local" ||
+      !state.config.presenterPeerId);
 
   // Deep clone jokers and state to guarantee React re-renders when jokers update live
   const clonedJokers = {
@@ -48,7 +48,7 @@ export function sanitizeGameStateForViewer(
       currentQuestion: state.currentQuestion
         ? {
             ...state.currentQuestion,
-            answer: "", // Hide exact string
+            answer: "", // Hide exact string from candidate memory
             badAnswers: [],
           }
         : null,

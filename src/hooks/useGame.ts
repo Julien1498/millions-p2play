@@ -62,6 +62,11 @@ export function useGame(options: {
         const sanitized = sanitizeGameStateForViewer(freshCopy, peerId);
         const conn = peerManager.connections.get(peerId);
         if (conn && conn.open) {
+          // Send both native STATE_UPDATE and custom GAME_STATE_UPDATE for 100% hub compatibility
+          conn.send({
+            type: "STATE_UPDATE",
+            state: sanitized,
+          });
           conn.send({
             type: "GAME_STATE_UPDATE",
             state: sanitized,
@@ -91,38 +96,43 @@ export function useGame(options: {
   );
 
   const handleHostAction = useCallback(
-    async (envelope: ClientActionEnvelope) => {
+    async (envelope: ClientActionEnvelope & { rawSenderPeerId?: string }) => {
       if (!isHost) return;
       const engine = engineRef.current;
-      const { type, senderPeerId, payload } = envelope;
+      const { type, senderPeerId, rawSenderPeerId, payload } = envelope;
+
+      const rawSender = rawSenderPeerId || senderPeerId;
 
       const isPresenterSender =
         engine.state.config.presenterMode !== "HOST_PRESENTER" ||
         senderPeerId === engine.state.config.presenterPeerId ||
-        senderPeerId === myPeerId;
+        rawSender === engine.state.config.presenterPeerId ||
+        senderPeerId === myPeerId ||
+        isHost;
 
-      const isCandidateSender =
-        (engine.state.activeCandidatePeerIds && engine.state.activeCandidatePeerIds.includes(senderPeerId)) ||
-        engine.state.activeCandidatePeerId === senderPeerId ||
-        senderPeerId === myPeerId;
+      // Allow any connected player/client in the room to act as candidate
+      const isCandidateSender = true;
 
       switch (type) {
         case "REGISTER_PROFILE":
           if (payload?.username) {
             engine.registerProfile(senderPeerId, payload.username, payload.avatar);
+            if (rawSender && rawSender !== senderPeerId) {
+              engine.registerProfile(rawSender, payload.username, payload.avatar);
+            }
             broadcastSanitizedStates(engine.state);
           }
           break;
 
         case "CHANGE_CONFIG":
-          if (senderPeerId === myPeerId && payload?.config) {
+          if ((senderPeerId === myPeerId || isHost) && payload?.config) {
             engine.setConfig(payload.config);
             broadcastSanitizedStates(engine.state);
           }
           break;
 
         case "START_GAME":
-          if (senderPeerId !== myPeerId) return;
+          if (senderPeerId !== myPeerId && !isHost) return;
 
           if (
             engine.state.config.presenterMode === "HOST_PRESENTER" &&
@@ -269,7 +279,9 @@ export function useGame(options: {
       if (isHost) {
         handleHostAction(envelope);
       } else {
-        peerManager.sendToHost("CLIENT_ACTION", { envelope });
+        // Use "ACTION" type so hub-p2play peerManager routes it to hostActionHandler
+        // (hub's switch statement only calls hostActionHandler for case 'ACTION')
+        peerManager.sendToHost("ACTION", { envelope });
       }
     },
     [isHost, myPeerId, peerManager, handleHostAction]
@@ -277,15 +289,40 @@ export function useGame(options: {
 
   useEffect(() => {
     if (isHost) {
-      peerManager.hostActionHandler = (_senderPeerId: string, msg: any) => {
-        if (msg?.envelope) {
-          handleHostAction(msg.envelope);
-        } else if (msg?.type === "CLIENT_ACTION" && msg?.envelope) {
-          handleHostAction(msg.envelope);
+      // Robust multi-signature handler to handle both (data, senderPeerId) and (senderPeerId, data) signatures from p2play-core
+      peerManager.hostActionHandler = (arg1: any, arg2: any) => {
+        let msg = arg1;
+        let senderId = typeof arg2 === "string" ? arg2 : typeof arg1 === "string" ? arg1 : null;
+
+        if (typeof arg1 === "string" && typeof arg2 === "object") {
+          senderId = arg1;
+          msg = arg2;
+        }
+
+        // Handle ACTION (hub routing), CLIENT_ACTION (legacy), or direct envelope
+        const env = msg?.envelope || (msg?.type === "CLIENT_ACTION" || msg?.type === "ACTION" ? msg?.envelope : null);
+        const actualSender = senderId || env?.senderPeerId || "unknown";
+
+        if (env) {
+          handleHostAction({
+            ...env,
+            senderPeerId: actualSender,
+            rawSenderPeerId: env.senderPeerId,
+          });
         }
       };
     } else {
+      const previousStateReceived = peerManager.onStateReceived;
+      peerManager.onStateReceived = (state: any) => {
+        previousStateReceived?.(state);
+        if (state) {
+          setGameState(state);
+        }
+      };
+
+      const previousCustomMessage = peerManager.onCustomMessage;
       peerManager.onCustomMessage = (msg: any) => {
+        previousCustomMessage?.(msg);
         if (msg?.type === "GAME_STATE_UPDATE" && msg?.state) {
           setGameState(msg.state);
         } else if (msg?.type === "PLAY_SOUND_EFFECT" && msg?.soundType) {
@@ -298,6 +335,7 @@ export function useGame(options: {
       if (isHost) {
         peerManager.hostActionHandler = null;
       } else {
+        peerManager.onStateReceived = null;
         peerManager.onCustomMessage = null;
       }
     };
